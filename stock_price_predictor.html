@@ -1,0 +1,297 @@
+
+<h2 class="sr-only">Stock price predictor using linear regression and moving averages on simulated historical data</h2>
+
+<div style="padding: 1rem 0;">
+
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px;">
+  <div>
+    <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 4px;">Ticker</p>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button onclick="selectStock('AAPL')" id="btn-AAPL" style="font-size: 13px; padding: 5px 14px; border-radius: var(--border-radius-md); border: 0.5px solid; cursor: pointer; transition: all 0.15s;" class="stock-btn active-btn">AAPL</button>
+      <button onclick="selectStock('GOOGL')" id="btn-GOOGL" style="font-size: 13px; padding: 5px 14px; border-radius: var(--border-radius-md); border: 0.5px solid; cursor: pointer; transition: all 0.15s;" class="stock-btn">GOOGL</button>
+      <button onclick="selectStock('TSLA')" id="btn-TSLA" style="font-size: 13px; padding: 5px 14px; border-radius: var(--border-radius-md); border: 0.5px solid; cursor: pointer; transition: all 0.15s;" class="stock-btn">TSLA</button>
+      <button onclick="selectStock('MSFT')" id="btn-MSFT" style="font-size: 13px; padding: 5px 14px; border-radius: var(--border-radius-md); border: 0.5px solid; cursor: pointer; transition: all 0.15s;" class="stock-btn">MSFT</button>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 4px;">Model</p>
+      <select id="model-select" onchange="runPrediction()" style="font-size: 13px; padding: 5px 10px; border-radius: var(--border-radius-md);">
+        <option value="linear">Linear Regression</option>
+        <option value="poly">Polynomial (degree 3)</option>
+        <option value="ma">Moving Average</option>
+        <option value="exp">Exponential Smoothing</option>
+      </select>
+    </div>
+    <div>
+      <p style="font-size: 13px; color: var(--color-text-secondary); margin: 0 0 4px;">Forecast days</p>
+      <select id="days-select" onchange="runPrediction()" style="font-size: 13px; padding: 5px 10px; border-radius: var(--border-radius-md);">
+        <option value="7">7 days</option>
+        <option value="14" selected>14 days</option>
+        <option value="30">30 days</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem;">
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px;">
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 6px;">Current Price</p>
+    <p style="font-size: 22px; font-weight: 500; margin: 0;" id="stat-current">—</p>
+  </div>
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px;">
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 6px;">Predicted (end)</p>
+    <p style="font-size: 22px; font-weight: 500; margin: 0;" id="stat-predicted">—</p>
+  </div>
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px;">
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 6px;">Expected change</p>
+    <p style="font-size: 22px; font-weight: 500; margin: 0;" id="stat-change">—</p>
+  </div>
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px;">
+    <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0 0 6px;">Model R²</p>
+    <p style="font-size: 22px; font-weight: 500; margin: 0;" id="stat-r2">—</p>
+  </div>
+</div>
+
+<div style="display: flex; gap: 16px; margin-bottom: 10px; font-size: 12px; color: var(--color-text-secondary);">
+  <span style="display:flex; align-items:center; gap:5px;"><span style="width:24px; height:2px; background:#378ADD; display:inline-block;"></span>Historical</span>
+  <span style="display:flex; align-items:center; gap:5px;"><span style="width:24px; height:2px; background:#1D9E75; display:inline-block; border-top: 2px dashed #1D9E75; border-bottom: none;"></span>Prediction</span>
+  <span style="display:flex; align-items:center; gap:5px;"><span style="width:24px; height:10px; background: rgba(29,158,117,0.15); display:inline-block; border-radius:2px;"></span>Confidence band</span>
+  <span style="display:flex; align-items:center; gap:5px;"><span style="width:24px; height:2px; background:#E24B4A; display:inline-block; border-top: 1px dashed #E24B4A;"></span>Trend line</span>
+</div>
+
+<div style="position: relative; width: 100%; height: 320px;">
+  <canvas id="stockChart" role="img" aria-label="Stock price history and prediction chart"></canvas>
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; margin-top: 1.5rem; padding-top: 1rem; border-top: 0.5px solid var(--color-border-tertiary);">
+  <i class="ti ti-info-circle" style="font-size:16px; color: var(--color-text-secondary);" aria-hidden="true"></i>
+  <p style="font-size: 12px; color: var(--color-text-secondary); margin: 0;">This uses <strong style="font-weight:500">simulated historical data</strong> for demonstration. Predictions use least-squares regression on the last 60 days. Not financial advice.</p>
+</div>
+
+</div>
+
+<style>
+.stock-btn { background: var(--color-background-primary); border-color: var(--color-border-tertiary); color: var(--color-text-secondary); }
+.active-btn { background: #E6F1FB; border-color: #378ADD; color: #0C447C; }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let currentStock = 'AAPL';
+let chartInstance = null;
+
+const stockSeeds = { AAPL: 182, GOOGL: 140, TSLA: 245, MSFT: 415 };
+const stockVols  = { AAPL: 0.012, GOOGL: 0.014, TSLA: 0.028, MSFT: 0.010 };
+const stockDrift = { AAPL: 0.0004, GOOGL: 0.0003, TSLA: 0.0006, MSFT: 0.0005 };
+
+function seededRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return ((s >>> 0) / 0xffffffff);
+  };
+}
+
+function generateHistory(ticker, days = 60) {
+  const rng = seededRand(ticker.charCodeAt(0) * 997 + ticker.charCodeAt(1) * 31);
+  let price = stockSeeds[ticker];
+  const prices = [price];
+  for (let i = 1; i < days; i++) {
+    const r = rng();
+    const noise = (r - 0.5) * 2;
+    price = price * (1 + stockDrift[ticker] + noise * stockVols[ticker]);
+    prices.push(Math.max(price, 1));
+  }
+  return prices;
+}
+
+function linReg(xs, ys) {
+  const n = xs.length;
+  const sumX = xs.reduce((a,b)=>a+b,0);
+  const sumY = ys.reduce((a,b)=>a+b,0);
+  const sumXY = xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const sumX2 = xs.reduce((a,x)=>a+x*x,0);
+  const m = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+  const b = (sumY - m*sumX) / n;
+  return { m, b, predict: x => m*x + b };
+}
+
+function polyFit(xs, ys, deg) {
+  const n = xs.length;
+  const xMean = xs.reduce((a,b)=>a+b,0)/n;
+  const xStd = Math.sqrt(xs.reduce((a,x)=>a+(x-xMean)**2,0)/n) || 1;
+  const xn = xs.map(x=>(x-xMean)/xStd);
+  const lr = linReg(xn.map(x=>x**2+x), ys);
+  return { predict: x => { const xns=(x-xMean)/xStd; return lr.predict(xns**2+xns); } };
+}
+
+function movingAvg(prices, window=7) {
+  const mas = [];
+  for (let i=0; i<prices.length; i++) {
+    const start = Math.max(0, i-window+1);
+    const slice = prices.slice(start, i+1);
+    mas.push(slice.reduce((a,b)=>a+b,0)/slice.length);
+  }
+  const lastMA = mas[mas.length-1];
+  const drift = (mas[mas.length-1] - mas[Math.max(0,mas.length-window)]) / window;
+  return { mas, drift, lastMA };
+}
+
+function expSmoothing(prices, alpha=0.3) {
+  let s = prices[0];
+  const smoothed = [s];
+  for (let i=1; i<prices.length; i++) {
+    s = alpha*prices[i] + (1-alpha)*s;
+    smoothed.push(s);
+  }
+  const diffs = smoothed.slice(-10).map((v,i,a)=>i>0?v-a[i-1]:0).slice(1);
+  const avgDiff = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+  return { smoothed, lastS: s, avgDiff };
+}
+
+function calcR2(actual, predicted) {
+  const mean = actual.reduce((a,b)=>a+b,0)/actual.length;
+  const ssTot = actual.reduce((a,y)=>a+(y-mean)**2,0);
+  const ssRes = actual.reduce((a,y,i)=>a+(y-predicted[i])**2,0);
+  return Math.max(0, 1 - ssRes/ssTot);
+}
+
+function selectStock(ticker) {
+  currentStock = ticker;
+  document.querySelectorAll('.stock-btn').forEach(b => b.classList.remove('active-btn'));
+  document.getElementById('btn-'+ticker).classList.add('active-btn');
+  runPrediction();
+}
+
+function runPrediction() {
+  const model = document.getElementById('model-select').value;
+  const forecastDays = parseInt(document.getElementById('days-select').value);
+  const history = generateHistory(currentStock, 60);
+  const xs = history.map((_,i)=>i);
+
+  let histFit = [], forecast = [], trendLine = [];
+  let r2Score = 0;
+
+  if (model === 'linear') {
+    const reg = linReg(xs, history);
+    histFit = xs.map(x => reg.predict(x));
+    for (let i=1; i<=forecastDays; i++) forecast.push(reg.predict(59+i));
+    trendLine = xs.map(x => reg.predict(x));
+    r2Score = calcR2(history, histFit);
+  } else if (model === 'poly') {
+    const reg = polyFit(xs, history, 3);
+    histFit = xs.map(x => reg.predict(x));
+    for (let i=1; i<=forecastDays; i++) forecast.push(reg.predict(59+i));
+    trendLine = histFit;
+    r2Score = calcR2(history, histFit);
+  } else if (model === 'ma') {
+    const { mas, drift } = movingAvg(history, 7);
+    histFit = mas;
+    let last = mas[mas.length-1];
+    for (let i=1; i<=forecastDays; i++) forecast.push(last + drift*i);
+    const lrForTrend = linReg(xs, history);
+    trendLine = xs.map(x=>lrForTrend.predict(x));
+    r2Score = calcR2(history, histFit);
+  } else if (model === 'exp') {
+    const { smoothed, lastS, avgDiff } = expSmoothing(history, 0.25);
+    histFit = smoothed;
+    for (let i=1; i<=forecastDays; i++) forecast.push(lastS + avgDiff*i);
+    const lrForTrend = linReg(xs, history);
+    trendLine = xs.map(x=>lrForTrend.predict(x));
+    r2Score = calcR2(history, histFit);
+  }
+
+  const allForecastXs = Array.from({length: forecastDays}, (_,i)=>60+i);
+  const confUp = forecast.map((v,i) => v * (1 + 0.008*(i+1)));
+  const confDn = forecast.map((v,i) => v * (1 - 0.008*(i+1)));
+
+  const labels = [...Array(60).keys()].map(i=>`Day ${i+1}`).concat(allForecastXs.map(i=>`Day ${i+1}`));
+
+  const histData = [...history, ...Array(forecastDays).fill(null)];
+  const fitData  = [...histFit, ...Array(forecastDays).fill(null)];
+  const foreData = [...Array(60).fill(null), ...forecast];
+  const confUpD  = [...Array(60).fill(null), ...confUp];
+  const confDnD  = [...Array(60).fill(null), ...confDn];
+  const trendD   = [...trendLine, ...Array(forecastDays).fill(null)];
+
+  const curPrice = history[history.length-1];
+  const predPrice = forecast[forecast.length-1];
+  const changePct = ((predPrice - curPrice)/curPrice*100);
+
+  document.getElementById('stat-current').textContent = '$'+curPrice.toFixed(2);
+  document.getElementById('stat-predicted').textContent = '$'+predPrice.toFixed(2);
+  const chEl = document.getElementById('stat-change');
+  chEl.textContent = (changePct>=0?'+':'')+changePct.toFixed(2)+'%';
+  chEl.style.color = changePct>=0 ? '#0F6E56' : '#A32D2D';
+  document.getElementById('stat-r2').textContent = r2Score.toFixed(4);
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+  const textColor = isDark ? '#B4B2A9' : '#5F5E5A';
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  const ctx = document.getElementById('stockChart').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Historical', data: histData,
+          borderColor: '#378ADD', borderWidth: 1.5, pointRadius: 0,
+          tension: 0.2, fill: false, borderDash: []
+        },
+        {
+          label: 'Confidence High', data: confUpD,
+          borderColor: 'transparent', pointRadius: 0,
+          fill: '+1', backgroundColor: 'rgba(29,158,117,0.15)', tension: 0.3
+        },
+        {
+          label: 'Confidence Low', data: confDnD,
+          borderColor: 'transparent', pointRadius: 0,
+          fill: false, tension: 0.3
+        },
+        {
+          label: 'Prediction', data: foreData,
+          borderColor: '#1D9E75', borderWidth: 2, pointRadius: 0,
+          tension: 0.3, fill: false, borderDash: [6,3]
+        },
+        {
+          label: 'Trend', data: trendD,
+          borderColor: '#E24B4A', borderWidth: 1, pointRadius: 0,
+          tension: 0, fill: false, borderDash: [3,3]
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.raw === null) return null;
+              return ctx.dataset.label + ': $' + ctx.raw.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, font: { size: 11 }, maxTicksLimit: 12, autoSkip: true },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: { color: textColor, font: { size: 11 }, callback: v => '$'+v.toFixed(0) },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+runPrediction();
+</script>
